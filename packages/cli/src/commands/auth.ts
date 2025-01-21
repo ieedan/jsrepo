@@ -16,14 +16,14 @@ const schema = v.object({
 
 type Options = v.InferInput<typeof schema>;
 
-const authProviders = providers.filter((p) => p.name() !== http.name());
+const gitProviders = providers.filter((p) => p.name() !== http.name());
 
 const auth = new Command('auth')
 	.description('Provide a token for access to private repositories.')
 	.option('--token <token>', 'The token to use for authenticating to your provider.')
 	.addOption(
 		new Option('--provider <name>', 'The provider this token belongs to.').choices(
-			authProviders.map((provider) => provider.name())
+			gitProviders.map((provider) => provider.name())
 		)
 	)
 	.option('--logout', 'Erase tokens from each provider from storage.', false)
@@ -41,7 +41,7 @@ const _auth = async (options: Options) => {
 	const storage = persisted.get();
 
 	if (options.logout) {
-		for (const provider of authProviders) {
+		for (const provider of gitProviders) {
 			const tokenKey = `${provider.name()}-token`;
 
 			if (storage.get(tokenKey) === undefined) {
@@ -71,14 +71,14 @@ const _auth = async (options: Options) => {
 		return;
 	}
 
-	if (authProviders.length > 1) {
+	if (gitProviders.length > 1) {
 		const response = await select({
 			message: 'Which provider is this token for?',
-			options: authProviders.map((provider) => ({
+			options: gitProviders.map((provider) => ({
 				label: provider.name(),
 				value: provider.name(),
 			})),
-			initialValue: authProviders[0].name(),
+			initialValue: gitProviders[0].name(),
 		});
 
 		if (isCancel(response)) {
@@ -88,7 +88,7 @@ const _auth = async (options: Options) => {
 
 		options.provider = response;
 	} else {
-		options.provider = authProviders[0].name();
+		options.provider = gitProviders[0].name();
 	}
 
 	if (options.token === undefined) {
