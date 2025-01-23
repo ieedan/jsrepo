@@ -34,15 +34,15 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@types/diff": "^7.0.0",
-		"@types/node": "^22.10.7",
+		"@types/node": "^22.10.9",
 		"@types/semver": "^7.5.8",
 		"@types/validate-npm-package-name": "^4.0.2",
 		"tsup": "^8.3.5",
 		"typescript": "^5.7.3",
-		"vitest": "^2.1.8"
+		"vitest": "^3.0.3"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.33.1",
+		"@anthropic-ai/sdk": "^0.35.0",
 		"@biomejs/js-api": "^0.7.1",
 		"@biomejs/wasm-nodejs": "^1.9.4",
 		"@clack/prompts": "^0.9.1",
@@ -59,15 +59,15 @@
 		"node-fetch": "^3.3.2",
 		"octokit": "^4.1.0",
 		"ollama": "^0.5.12",
-		"openai": "^4.79.3",
+		"openai": "^4.80.0",
 		"package-manager-detector": "^0.2.8",
 		"parse5": "^7.2.1",
 		"pathe": "^2.0.2",
 		"prettier": "^3.4.2",
 		"semver": "^7.6.3",
-		"svelte": "^5.19.1",
+		"svelte": "^5.19.2",
 		"ts-morph": "^25.0.0",
-		"valibot": "1.0.0-beta.11",
+		"valibot": "1.0.0-beta.14",
 		"validate-npm-package-name": "^6.0.0",
 		"vue": "^3.5.13"
 	}

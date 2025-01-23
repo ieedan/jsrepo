@@ -19,7 +19,12 @@ export interface Model {
 	}) => Promise<string>;
 }
 
-export type ModelName = 'Claude 3.5 Sonnet' | 'ChatGPT 4o-mini' | 'ChatGPT 4o' | 'Phi4';
+export type ModelName =
+	| 'Claude 3.5 Sonnet'
+	| 'ChatGPT 4o-mini'
+	| 'ChatGPT 4o'
+	| 'Phi4'
+	| 'DeepSeek Coder v2';
 
 type Prompt = {
 	system: string;
@@ -118,6 +123,25 @@ const models: Record<ModelName, Model> = {
 			return unwrapCodeFromQuotes(text);
 		},
 	},
+	'DeepSeek Coder v2': {
+		updateFile: async ({ originalFile, newFile, loading, verbose }) => {
+			if (!verbose) loading.start(`Asking ${'DeepSeek Coder v2'}`);
+
+			const prompt = createUpdatePrompt({ originalFile, newFile });
+
+			verbose?.(
+				`Prompting ${'DeepSeek Coder v2'} with:\n${JSON.stringify(prompt, null, '\t')}`
+			);
+
+			const text = await getNextCompletionOllama({ model: 'deepseek-coder-v2', prompt });
+
+			if (!verbose) loading.stop(`${'DeepSeek Coder v2'} updated the file`);
+
+			if (!text) return newFile.content;
+
+			return unwrapCodeFromQuotes(text);
+		},
+	},
 };
 
 const getNextCompletionOpenAI = async ({
@@ -201,21 +225,13 @@ const getNextCompletionOllama = async ({
 	prompt: Prompt;
 	model: string;
 }): Promise<string | null> => {
-	const resp = await ollama.chat({
+	const resp = await ollama.generate({
 		model,
-		messages: [
-			{
-				role: 'system',
-				content: prompt.system,
-			},
-			{
-				role: 'user',
-				content: prompt.message,
-			},
-		],
+		system: prompt.system,
+		prompt: prompt.message,
 	});
 
-	return resp.message.content;
+	return resp.response;
 };
 
 const createUpdatePrompt = ({
