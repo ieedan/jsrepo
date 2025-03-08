@@ -51,7 +51,10 @@ export const github: RegistryProvider = {
 		// fetch default branch if ref was not provided
 		if (ref === undefined) {
 			try {
-				const { data: repo } = await octokit.rest.repos.get({ owner, repo: repoName });
+				const { data: repo } = await octokit.rest.repos.get({
+					owner,
+					repo: repoName,
+				});
 
 				ref = repo.default_branch;
 			} catch {
@@ -89,7 +92,7 @@ export const github: RegistryProvider = {
 		} satisfies GitHubProviderState;
 	},
 
-	resolveRaw: async (state, resourcePath) => {
+	resolveRaw: async (state, resourcePath, tag) => {
 		// essentially assert that we are using the correct state
 		if (state.provider.name !== github.name) {
 			throw new Error(
@@ -101,7 +104,9 @@ export const github: RegistryProvider = {
 
 		return new URL(
 			resourcePath,
-			`https://raw.githubusercontent.com/${owner}/${repoName}/refs/${refs}/${ref}/`
+			tag
+				? `https://raw.githubusercontent.com/${owner}/${repoName}/${tag}/`
+				: `https://raw.githubusercontent.com/${owner}/${repoName}/refs/${refs}/${ref}/`
 		);
 	},
 
@@ -122,7 +127,13 @@ ${color.bold('This may be for one of the following reasons:')}
 const parseUrl = (
 	url: string,
 	{ fullyQualified = false }: ParseOptions
-): { url: string; owner: string; repoName: string; ref?: string; specifier?: string } => {
+): {
+	url: string;
+	owner: string;
+	repoName: string;
+	ref?: string;
+	specifier?: string;
+} => {
 	const repo = url.replaceAll(/(https:\/\/github.com\/)|(github\/)/g, '');
 
 	let [owner, repoName, ...rest] = repo.split('/');

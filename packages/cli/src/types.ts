@@ -27,6 +27,11 @@ export const manifestMeta = v.object({
 	homepage: v.optional(v.string()),
 	repository: v.optional(v.string()),
 	tags: v.optional(v.array(v.string())),
+	signature: v.optional(v.string()),
+	isOrigin: v.optional(v.boolean()),
+	publicKeyUrl: v.optional(v.string()), // URL to download the public key
+	secureSource: v.optional(v.boolean()), // Indicates if this is a secure registry
+	verifiedSignature: v.optional(v.boolean()), // Indicates if signature has been verified
 });
 
 export const peerDependencySchema = v.record(

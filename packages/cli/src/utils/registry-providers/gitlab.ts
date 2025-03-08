@@ -84,7 +84,7 @@ export const gitlab: RegistryProvider = {
 		} satisfies GitLabProviderState;
 	},
 
-	resolveRaw: async (state, resourcePath) => {
+	resolveRaw: async (state, resourcePath, tag) => {
 		// essentially assert that we are using the correct state
 		if (state.provider.name !== gitlab.name) {
 			throw new Error(
@@ -95,7 +95,7 @@ export const gitlab: RegistryProvider = {
 		const { owner, repoName, ref } = state as GitLabProviderState;
 
 		return new URL(
-			`${encodeURIComponent(resourcePath)}/raw?ref=${ref}`,
+			`${encodeURIComponent(resourcePath)}/raw?ref=${tag ?? ref}`,
 			`https://gitlab.com/api/v4/projects/${encodeURIComponent(`${owner}/${repoName}`)}/repository/files/`
 		);
 	},

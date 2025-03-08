@@ -31,6 +31,7 @@ import {
 	truncatedList,
 } from '../utils/prompts';
 import * as registry from '../utils/registry-providers/internal';
+import { verifySecureRegistry } from '../utils/secure-registry';
 
 const schema = v.object({
 	expand: v.boolean(),
@@ -41,6 +42,7 @@ const schema = v.object({
 	cache: v.boolean(),
 	verbose: v.boolean(),
 	cwd: v.string(),
+	publicKeyUrl: v.optional(v.string()), // Optional custom URL for public key
 });
 
 type Options = v.InferInput<typeof schema>;
@@ -148,7 +150,9 @@ const _add = async (blockNames: string[], options: Options) => {
 			continue;
 		}
 
-		const { url: repo } = provider.parse(blockSpecifier, { fullyQualified: true });
+		const { url: repo } = provider.parse(blockSpecifier, {
+			fullyQualified: true,
+		});
 
 		const alreadyExists =
 			!config.repos.find((repoPath) => repoPath === repo) && !mustResolveRepos.has(repo);
@@ -215,7 +219,9 @@ const _add = async (blockNames: string[], options: Options) => {
 	if (!options.verbose) loading.start(`Fetching blocks from ${color.cyan(repoPaths.join(', '))}`);
 
 	const resolvedRepos: registry.RegistryProviderState[] = (
-		await registry.forEachPathGetProviderState(repoPaths, { noCache: !options.cache })
+		await registry.forEachPathGetProviderState(repoPaths, {
+			noCache: !options.cache,
+		})
 	).match(
 		(val) => val,
 		({ repo, message }) => {
@@ -235,6 +241,35 @@ const _add = async (blockNames: string[], options: Options) => {
 			program.error(color.red(message));
 		}
 	);
+
+	// Verify secure registries
+	for (const manifest of manifests) {
+		const verification = await verifySecureRegistry(manifest.state, manifest.manifest);
+
+		if (verification.isSecure) {
+			if (verification.isVerified) {
+				log.info(`Verified secure registry: ${color.cyan(manifest.state.url)}`);
+				verbose(`Signature: ${color.cyan(verification.signature)}`);
+			} else {
+				// If public key URL is provided, we could implement fetching it
+				if (verification.publicKeyUrl || options.publicKeyUrl) {
+					// TODO: Implement fetching and saving public key
+					log.warn(
+						`Public key not found locally. You can download it from: ${color.cyan(
+							options.publicKeyUrl || verification.publicKeyUrl
+						)}`
+					);
+				}
+				program.error(
+					color.red(
+						`Failed to verify secure registry ${color.cyan(
+							manifest.state.url
+						)}. Registry signature verification failed.`
+					)
+				);
+			}
+		}
+	}
 
 	const blocksMap = registry.getRemoteBlocks(manifests);
 
@@ -514,7 +549,11 @@ const _add = async (blockNames: string[], options: Options) => {
 					}
 
 					const updateResult = await promptUpdateFile({
-						config: { biomeOptions, prettierOptions, formatter: config.formatter },
+						config: {
+							biomeOptions,
+							prettierOptions,
+							formatter: config.formatter,
+						},
 						current: {
 							path: destPath,
 							content: localContent,

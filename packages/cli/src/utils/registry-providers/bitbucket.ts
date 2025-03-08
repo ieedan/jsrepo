@@ -85,7 +85,7 @@ export const bitbucket: RegistryProvider = {
 		} satisfies BitBucketProviderState;
 	},
 
-	resolveRaw: async (state, resourcePath) => {
+	resolveRaw: async (state, resourcePath, tag) => {
 		// essentially assert that we are using the correct state
 		if (state.provider.name !== bitbucket.name) {
 			throw new Error(
@@ -97,7 +97,7 @@ export const bitbucket: RegistryProvider = {
 
 		return new URL(
 			resourcePath,
-			`https://api.bitbucket.org/2.0/repositories/${owner}/${repoName}/src/${ref}/`
+			`https://api.bitbucket.org/2.0/repositories/${owner}/${repoName}/src/${tag ?? ref}/`
 		);
 	},
 

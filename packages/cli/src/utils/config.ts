@@ -72,6 +72,8 @@ export const registryConfigSchema = v.object({
 	allowSubdirectories: v.optional(v.boolean()),
 	preview: v.optional(v.boolean()),
 	rules: v.optional(ruleConfigSchema),
+	secure: v.optional(v.boolean(), false),
+	repoUrl: v.optional(v.string()),
 });
 
 export const getRegistryConfig = (cwd: string): Result<RegistryConfig | null, string> => {

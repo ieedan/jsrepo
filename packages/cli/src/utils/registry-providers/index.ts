@@ -22,14 +22,16 @@ export type FetchOptions = {
 	/** Override the fetch method. If you are using this in a node environment you will want to pass `node-fetch` */
 	fetch?: typeof fetch;
 	verbose: (str: string) => void;
+	tag?: string;
 };
 
 export const fetchRaw = async (
 	state: RegistryProviderState,
 	resourcePath: string,
-	{ verbose, fetch: f = fetch, token }: Partial<FetchOptions> = {}
+	{ verbose, fetch: f = fetch, token }: Partial<FetchOptions> = {},
+	tag?: string
 ): Promise<Result<string, string>> => {
-	const url = await state.provider.resolveRaw(state, resourcePath);
+	const url = await state.provider.resolveRaw(state, resourcePath, tag);
 
 	verbose?.(`Trying to fetch from ${url}`);
 
@@ -64,9 +66,10 @@ export const fetchRaw = async (
 
 export const fetchManifest = async (
 	state: RegistryProviderState,
-	{ fetch: f = fetch, ...rest }: Partial<FetchOptions> = {}
+	{ fetch: f = fetch, ...rest }: Partial<FetchOptions> = {},
+	tag?: string
 ): Promise<Result<Manifest, string>> => {
-	const manifest = await fetchRaw(state, MANIFEST_FILE, { fetch: f, ...rest });
+	const manifest = await fetchRaw(state, MANIFEST_FILE, { fetch: f, ...rest }, tag);
 
 	if (manifest.isErr()) return Err(manifest.unwrapErr());
 

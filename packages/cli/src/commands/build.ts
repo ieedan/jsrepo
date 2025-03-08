@@ -10,9 +10,13 @@ import type { Category, Manifest } from '../types';
 import * as ascii from '../utils/ascii';
 import { buildBlocksDirectory, buildConfigFiles, pruneUnused } from '../utils/build';
 import { DEFAULT_CONFIG, runRules } from '../utils/build/check';
-import { type RegistryConfig, getRegistryConfig } from '../utils/config';
+import { getRegistryConfig, type RegistryConfig } from '../utils/config';
 import { parseManifest } from '../utils/manifest';
 import { intro, spinner } from '../utils/prompts';
+import { loadRegistryKeys, signManifest, verifyManifest } from '../utils/crypto';
+import { getProviderState, internalFetchManifest } from '../utils/registry-providers/internal';
+import { getGitTags } from '../utils/registry-providers/git-tags';
+import semver from 'semver';
 
 // sensible defaults for ignored directories
 const IGNORED_DIRS = ['.git', 'node_modules'] as const;
@@ -107,6 +111,7 @@ const _build = async (options: Options) => {
 					excludeCategories: options.excludeCategories ?? [],
 					allowSubdirectories: options.allowSubdirectories,
 					preview: options.preview,
+					secure: false,
 				} satisfies RegistryConfig;
 			}
 
@@ -116,19 +121,37 @@ const _build = async (options: Options) => {
 
 			if (options.dirs) mergedVal.dirs = options.dirs;
 			if (options.outputDir) mergedVal.outputDir = options.outputDir;
-			if (options.doNotListBlocks) mergedVal.doNotListBlocks = options.doNotListBlocks;
-			if (options.doNotListCategories)
+			if (options.doNotListBlocks) {
+				mergedVal.doNotListBlocks = options.doNotListBlocks;
+			}
+			if (options.doNotListCategories) {
 				mergedVal.doNotListCategories = options.doNotListCategories;
+			}
 			if (options.listBlocks) mergedVal.listBlocks = options.listBlocks;
-			if (options.listCategories) mergedVal.listCategories = options.listCategories;
-			if (options.includeBlocks) mergedVal.includeBlocks = options.includeBlocks;
-			if (options.includeCategories) mergedVal.includeCategories = options.includeCategories;
-			if (options.excludeBlocks) mergedVal.excludeBlocks = options.excludeBlocks;
-			if (options.excludeCategories) mergedVal.excludeCategories = options.excludeCategories;
-			if (options.excludeDeps) mergedVal.excludeDeps = options.excludeDeps;
-			if (options.allowSubdirectories !== undefined)
+			if (options.listCategories) {
+				mergedVal.listCategories = options.listCategories;
+			}
+			if (options.includeBlocks) {
+				mergedVal.includeBlocks = options.includeBlocks;
+			}
+			if (options.includeCategories) {
+				mergedVal.includeCategories = options.includeCategories;
+			}
+			if (options.excludeBlocks) {
+				mergedVal.excludeBlocks = options.excludeBlocks;
+			}
+			if (options.excludeCategories) {
+				mergedVal.excludeCategories = options.excludeCategories;
+			}
+			if (options.excludeDeps) {
+				mergedVal.excludeDeps = options.excludeDeps;
+			}
+			if (options.allowSubdirectories !== undefined) {
 				mergedVal.allowSubdirectories = options.allowSubdirectories;
-			if (options.preview !== undefined) mergedVal.preview = options.preview;
+			}
+			if (options.preview !== undefined) {
+				mergedVal.preview = options.preview;
+			}
 
 			mergedVal.rules = { ...DEFAULT_CONFIG, ...mergedVal.rules };
 
@@ -197,7 +220,9 @@ const _build = async (options: Options) => {
 		for (const category of builtCategories) {
 			if (categories.find((cat) => cat.name === category.name) !== undefined) {
 				console.warn(
-					`${ascii.VERTICAL_LINE}  ${ascii.WARN} Skipped adding \`${color.cyan(`${dir}/${category.name}`)}\` because a category with the same name already exists!`
+					`${ascii.VERTICAL_LINE}  ${ascii.WARN} Skipped adding \`${color.cyan(
+						`${dir}/${category.name}`
+					)}\` because a category with the same name already exists!`
 				);
 				continue;
 			}
@@ -210,7 +235,7 @@ const _build = async (options: Options) => {
 
 	const configFiles = buildConfigFiles(config, { cwd: options.cwd });
 
-	const manifest = createManifest(categories, configFiles, config);
+	const manifest = await createManifest(categories, configFiles, config, options);
 
 	loading.start('Checking manifest');
 
@@ -234,7 +259,9 @@ const _build = async (options: Options) => {
 
 		program.error(
 			color.red(
-				`Completed checking manifest with ${color.bold(`${errors.length} error(s)`)} and ${color.bold(`${warnings.length} warning(s)`)}`
+				`Completed checking manifest with ${color.bold(
+					`${errors.length} error(s)`
+				)} and ${color.bold(`${warnings.length} warning(s)`)}`
 			)
 		);
 	}
@@ -310,17 +337,190 @@ const _build = async (options: Options) => {
 	}
 };
 
-export const createManifest = (
+const createBaseManifest = (
 	categories: Category[],
 	configFiles: Manifest['configFiles'],
 	config: RegistryConfig
-) => {
-	const manifest: Manifest = {
+): Manifest => {
+	return {
 		meta: config.meta,
 		peerDependencies: config.peerDependencies,
 		configFiles,
 		categories,
 	};
+};
+
+const verifySecureManifest = async (
+	manifest: Manifest,
+	originalManifest: Manifest,
+	signature: string,
+	keys: { publicKey: string },
+	loading: any
+) => {
+	loading.start('Verifying manifest signatures');
+	const originMeta = {
+		...originalManifest.meta,
+		signature: undefined,
+		isOrigin: undefined,
+	};
+	const newMeta = {
+		...manifest.meta,
+		signature: undefined,
+		isOrigin: undefined,
+	};
+
+	const originVerification = verifyManifest(
+		JSON.stringify(
+			{
+				...originalManifest,
+				meta:
+					originMeta && !!Object.values(originMeta)?.filter(Boolean)?.length
+						? originMeta
+						: undefined,
+			},
+			null,
+			2
+		),
+		originalManifest.meta?.signature!,
+		keys.publicKey
+	);
+
+	const newVerification = verifyManifest(
+		JSON.stringify(
+			{
+				...manifest,
+				meta:
+					newMeta && !!Object.values(newMeta)?.filter(Boolean)?.length
+						? newMeta
+						: undefined,
+			},
+			null,
+			2
+		),
+		signature,
+		keys.publicKey
+	);
+
+	if (!originVerification || !newVerification) {
+		program.error(
+			color.red('Signature verification failed. Keys do not match the original registry.')
+		);
+	}
+
+	loading.stop('Manifest signature verified');
+	return false; // isOrigin = false
+};
+
+const handleSecureManifest = async (
+	manifest: Manifest,
+	config: RegistryConfig,
+	options: Options,
+	loading: any,
+	verbose: (msg: string) => void
+): Promise<Manifest> => {
+	const keys = loadRegistryKeys(options.cwd);
+	if (!keys) {
+		program.error(color.red('Registry keys not found. Please run init with --secure flag.'));
+	}
+
+	if (!config.repoUrl) {
+		program.error(
+			color.red(
+				"Repository URL is required when secure mode is enabled. Please set 'repoUrl' in your registry config."
+			)
+		);
+	}
+
+	const manifestStr = JSON.stringify(manifest, null, 2);
+
+	loading.start('Signing manifest');
+	const signature = signManifest(manifestStr, keys.privateKey);
+	loading.stop('Manifest signed');
+
+	let isOrigin = true;
+
+	const providerState = (
+		await getProviderState(config.repoUrl, {
+			noCache: true,
+		})
+	).match(
+		(val) => val,
+		(err) =>
+			program.error(
+				color.red(
+					`Failed to get provider state: ${err} make sure you have the correct repoUrl and/or token.`
+				)
+			)
+	);
+
+	const gitTags = (await getGitTags(config.repoUrl)).match(
+		(val) => val,
+		(err) =>
+			program.error(
+				color.red(
+					'No git tags found. Secure repositories must be versioned with git tags starting from 0.0.1'
+				)
+			)
+	);
+
+	const versions = gitTags.map((tag) => semver.clean(tag)).filter(Boolean);
+
+	if (versions.includes('0.0.1')) {
+		const originalManifest = await internalFetchManifest(
+			providerState,
+			{
+				verbose,
+			},
+			'0.0.1'
+		);
+
+		if (originalManifest.isOk()) {
+			isOrigin = await verifySecureManifest(
+				manifest,
+				originalManifest.unwrap(),
+				signature,
+				keys,
+				loading
+			);
+		}
+	} else {
+		verbose(
+			color.yellow(
+				'No origin tag found. Secure repositories must be versioned with git tags starting from 0.0.1, taking this as the origin.'
+			)
+		);
+		isOrigin = true;
+	}
+
+	return {
+		...manifest,
+		meta: {
+			...manifest.meta,
+			signature,
+			isOrigin,
+		},
+	};
+};
+
+export const createManifest = async (
+	categories: Category[],
+	configFiles: Manifest['configFiles'],
+	config: RegistryConfig,
+	options: Options
+) => {
+	const verbose = (msg: string) => {
+		if (options.verbose) {
+			console.info(`${ascii.INFO} ${msg}`);
+		}
+	};
+
+	const loading = spinner({ verbose: options.verbose ? verbose : undefined });
+
+	let manifest = createBaseManifest(categories, configFiles, config);
+
+	if (config.secure) {
+		manifest = await handleSecureManifest(manifest, config, options, loading, verbose);
+	}
 
 	return manifest;
 };

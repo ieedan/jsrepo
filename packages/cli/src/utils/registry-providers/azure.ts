@@ -56,7 +56,7 @@ export const azure: RegistryProvider = {
 		} satisfies AzureProviderState;
 	},
 
-	resolveRaw: async (state, resourcePath) => {
+	resolveRaw: async (state, resourcePath, tag) => {
 		// essentially assert that we are using the correct state
 		if (state.provider.name !== azure.name) {
 			throw new Error(
@@ -69,7 +69,7 @@ export const azure: RegistryProvider = {
 		const versionType = refs === 'tags' ? 'tag' : 'branch';
 
 		return new URL(
-			`https://dev.azure.com/${owner}/${project}/_apis/git/repositories/${repoName}/items?path=${resourcePath}&api-version=7.2-preview.1&versionDescriptor.version=${ref}&versionDescriptor.versionType=${versionType}`
+			`https://dev.azure.com/${owner}/${project}/_apis/git/repositories/${repoName}/items?path=${resourcePath}&api-version=7.2-preview.1&versionDescriptor.version=${tag ?? ref}&versionDescriptor.versionType=${versionType}`
 		);
 	},
 

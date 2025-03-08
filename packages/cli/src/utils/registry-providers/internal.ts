@@ -23,7 +23,8 @@ export type RemoteBlock = Block & { sourceRepo: RegistryProviderState };
 export const internalFetchRaw = async (
 	state: RegistryProviderState,
 	resourcePath: string,
-	{ verbose }: { verbose?: (msg: string) => void } = {}
+	{ verbose }: { verbose?: (msg: string) => void } = {},
+	tag?: string
 ) => {
 	return await fetchRaw(state, resourcePath, {
 		verbose,
@@ -36,14 +37,19 @@ export const internalFetchRaw = async (
 /** Wraps the basic implementation to inject `node-fetch` and the correct token. */
 export const internalFetchManifest = async (
 	state: RegistryProviderState,
-	{ verbose }: { verbose?: (msg: string) => void } = {}
+	{ verbose }: { verbose?: (msg: string) => void } = {},
+	tag?: string
 ) => {
-	return await fetchManifest(state, {
-		verbose,
-		// @ts-expect-error but it does work
-		fetch: nodeFetch,
-		token: getProviderToken(state.provider),
-	});
+	return await fetchManifest(
+		state,
+		{
+			verbose,
+			// @ts-expect-error but it does work
+			fetch: nodeFetch,
+			token: getProviderToken(state.provider),
+		},
+		tag
+	);
 };
 
 /** Gets the locally stored token for the given provider */

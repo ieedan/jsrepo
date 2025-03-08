@@ -36,7 +36,7 @@ export interface RegistryProvider {
 	 * @param resourcePath
 	 * @returns
 	 */
-	resolveRaw: (state: RegistryProviderState, resourcePath: string) => Promise<URL>;
+	resolveRaw: (state: RegistryProviderState, resourcePath: string, tag?: string) => Promise<URL>;
 	/** Different providers use different authorization schemes.
 	 *  Provide this method with a token to get the key value pair for the authorization header.
 	 *

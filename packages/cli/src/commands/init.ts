@@ -45,6 +45,7 @@ import {
 } from '../utils/prompts';
 import * as registry from '../utils/registry-providers/internal';
 import { TokenManager } from '../utils/token-manager';
+import { generateKeyPair, saveRegistryKeys } from '../utils/crypto';
 
 const schema = v.object({
 	repos: v.optional(v.array(v.string())),
@@ -697,7 +698,91 @@ const _initRegistry = async (options: Options) => {
 			excludeBlocks: [],
 			excludeCategories: [],
 			preview: false,
+			secure: false,
 		};
+	}
+
+	if (!options.yes) {
+		const secureResponse = await confirm({
+			message: 'Would you like to create a secure registry?',
+			initialValue: config.secure ?? false,
+		});
+
+		if (isCancel(secureResponse)) {
+			cancel('Canceled!');
+			process.exit(0);
+		}
+
+		config.secure = secureResponse;
+
+		if (config.secure) {
+			const repoUrlResponse = await text({
+				message: 'What is the repository URL for this registry?',
+				validate(value) {
+					if (value.trim() === '') return 'Please provide a value';
+					if (!value.startsWith('http')) return 'Please provide a valid URL';
+				},
+			});
+
+			if (isCancel(repoUrlResponse)) {
+				cancel('Canceled!');
+				process.exit(0);
+			}
+
+			config.repoUrl = repoUrlResponse;
+
+			const keyPathResponse = await text({
+				message: 'Public key URL',
+				validate(value) {
+					if (value.trim() === '') return './.jsrepo/public.pem';
+				},
+			});
+
+			if (isCancel(keyPathResponse)) {
+				cancel('Canceled!');
+				process.exit(0);
+			}
+
+			config.meta = {
+				publicKeyUrl: keyPathResponse,
+			};
+
+			loading.start('Generating registry keys');
+			const keyPair = await generateKeyPair();
+			saveRegistryKeys(keyPair, options.cwd);
+			loading.stop('Generated registry keys');
+
+			if (config.secure) {
+				const { publicKey, privateKey } = await generateKeyPair();
+				const keys = saveRegistryKeys({ publicKey, privateKey }, options.cwd);
+
+				log.info(color.cyan('Generated registry keys for secure mode.'));
+				log.info(
+					`You ca find your key pair at ${color.cyan(keys.publicKey)} and ${color.cyan(
+						keys.privateKey
+					)}`
+				);
+				log.info(color.yellow('IMPORTANT: For secure repositories, you must:'));
+				log.info(`1. Create your first build: ${color.cyan('jsrepo build')}`);
+				log.info(`2. Create an initial git tag: ${color.cyan('git tag 0.0.1')}`);
+				log.info(`3. Push the tag: ${color.cyan('git push --tags')}`);
+				log.info('This version tag is mandatory and will be verified during builds.');
+			}
+
+			loading.start(`Writing config to \`${REGISTRY_CONFIG_NAME}\``);
+
+			const configPath = path.join(options.cwd, REGISTRY_CONFIG_NAME);
+
+			try {
+				fs.writeFileSync(path.join(configPath), JSON.stringify(config, null, '\t'));
+			} catch (err) {
+				program.error(
+					color.red(`Error writing to \`${color.bold(configPath)}\`. Error: ${err}`)
+				);
+			} finally {
+				loading.stop(`Wrote config to \`${REGISTRY_CONFIG_NAME}\``);
+			}
+		}
 	}
 
 	config.$schema = `https://unpkg.com/jsrepo@${packageJson.version}/schemas/registry-config.json`;
