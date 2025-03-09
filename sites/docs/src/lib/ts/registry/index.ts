@@ -2,6 +2,7 @@ import {
 	fetchManifest,
 	github,
 	gitlab,
+	http,
 	type Manifest,
 	type RegistryProvider,
 	type RegistryProviderState
@@ -52,7 +53,7 @@ export const getProviderState = async (
 		};
 
 		const getLocal = async () =>
-			await provider.state(registryUrl, { token: getProviderToken(provider) });
+			await provider.state(registryUrl, { token: getProviderToken(provider, registryUrl) });
 
 		const resolvedLocal = getLocal();
 
@@ -66,7 +67,7 @@ export const getProviderState = async (
 			state = result;
 		}
 	} else {
-		state = await provider.state(registryUrl, { token: getProviderToken(provider) });
+		state = await provider.state(registryUrl, { token: getProviderToken(provider, registryUrl) });
 	}
 
 	// never cache http
@@ -81,7 +82,9 @@ export const getRegistryData = async (
 	providerState: RegistryProviderState
 ): Promise<RegistryInfo | undefined> => {
 	const [manifestResult, readmeResult] = await Promise.all([
-		fetchManifest(providerState, { token: getProviderToken(providerState.provider) }),
+		fetchManifest(providerState, {
+			token: getProviderToken(providerState.provider, providerState.url)
+		}),
 		fetchReadme(providerState)
 	]);
 
@@ -110,7 +113,7 @@ export const fetchReadme = async (state: RegistryProviderState): Promise<string 
 	try {
 		const headers = new Headers();
 
-		const token = getProviderToken(state.provider);
+		const token = getProviderToken(state.provider, state.url);
 
 		if (token !== undefined && state.provider.authHeader) {
 			const [key, value] = state.provider.authHeader(token);
@@ -135,12 +138,14 @@ export const fetchReadme = async (state: RegistryProviderState): Promise<string 
 	}
 };
 
-export const getProviderToken = (provider: RegistryProvider): string | undefined => {
+export const getProviderToken = (provider: RegistryProvider, url: string): string | undefined => {
 	switch (provider.name) {
 		case github.name:
 			return GITHUB_TOKEN;
 		case gitlab.name:
 			return GITLAB_TOKEN;
+		case http.name:
+			return http.keys.token(url);
 		// add the rest of the tokens here
 	}
 

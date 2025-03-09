@@ -410,7 +410,7 @@ const _add = async (blockNames: string[], options: Options) => {
 
 	let overwriteAll: boolean | undefined;
 
-	const preloadedBlocks = preloadBlocks(installingBlocks, config);
+	const preloadedBlocks = preloadBlocks(installingBlocks, config, { verbose });
 
 	const updatedFiles: Promise<{
 		destination: string;

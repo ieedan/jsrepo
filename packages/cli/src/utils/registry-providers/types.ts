@@ -48,6 +48,12 @@ export interface RegistryProvider {
 	formatFetchError: (state: RegistryProviderState, filePath: string, error: unknown) => string;
 }
 
+export interface HttpRegistryProvider extends RegistryProvider {
+	keys: {
+		token: (url: string) => string;
+	};
+}
+
 export type ParseOptions = {
 	/** Set true when the provided path ends with `<category>/<block>` */
 	fullyQualified?: boolean;

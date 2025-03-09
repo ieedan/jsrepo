@@ -9,7 +9,7 @@ import {
 	github,
 	gitlab,
 	providers,
-	selectProvider,
+	selectProvider
 } from '.';
 import type { Block, Manifest } from '../../types';
 import { Err, Ok, type Result } from '../blocks/ts/result';
@@ -29,7 +29,7 @@ export const internalFetchRaw = async (
 		verbose,
 		// @ts-expect-error but it does work
 		fetch: nodeFetch,
-		token: getProviderToken(state.provider),
+		token: getProviderToken(state.provider, state.url)
 	});
 };
 
@@ -42,16 +42,15 @@ export const internalFetchManifest = async (
 		verbose,
 		// @ts-expect-error but it does work
 		fetch: nodeFetch,
-		token: getProviderToken(state.provider),
+		token: getProviderToken(state.provider, state.url)
 	});
 };
 
 /** Gets the locally stored token for the given provider */
-export const getProviderToken = (provider: RegistryProvider): string | undefined => {
-	// there isn't an auth implementation for http
-	if (provider.name === 'http') return;
+export const getProviderToken = (provider: RegistryProvider, url: string): string | undefined => {
+	const key = provider.name === http.name ? http.keys.token(url) : provider.name;
 
-	const token = persisted.get().get(`${provider.name}-token`);
+	const token = persisted.get().get(`${key}-token`);
 
 	if (!token) return;
 
@@ -80,9 +79,9 @@ export const getProviderState = async (
 		}
 
 		const state = await provider.state(repo, {
-			token: getProviderToken(provider),
+			token: getProviderToken(provider, repo),
 			// @ts-expect-error but it does work
-			fetch: nodeFetch,
+			fetch: nodeFetch
 		});
 
 		// only cache git providers
@@ -113,8 +112,7 @@ export const forEachPathGetProviderState = async (
 		repos.map(async (repo) => {
 			const getProviderResult = await getProviderState(repo, { noCache });
 
-			if (getProviderResult.isErr())
-				return Err({ message: getProviderResult.unwrapErr(), repo });
+			if (getProviderResult.isErr()) return Err({ message: getProviderResult.unwrapErr(), repo });
 
 			const providerState = getProviderResult.unwrap();
 
@@ -156,7 +154,7 @@ export const fetchBlocks = async (
 				for (const block of category.blocks) {
 					blocksMap.set(u.join(state.url, `${block.category}/${block.name}`), {
 						...block,
-						sourceRepo: state,
+						sourceRepo: state
 					});
 				}
 			}
@@ -182,7 +180,7 @@ export const getRemoteBlocks = (manifests: FetchManifestResult[]) => {
 			for (const block of category.blocks) {
 				blocksMap.set(u.join(manifest.state.url, `${block.category}/${block.name}`), {
 					...block,
-					sourceRepo: manifest.state,
+					sourceRepo: manifest.state
 				});
 			}
 		}
@@ -238,5 +236,5 @@ export {
 	providers,
 	internalFetchManifest as fetchManifest,
 	internalFetchRaw as fetchRaw,
-	selectProvider,
+	selectProvider
 };

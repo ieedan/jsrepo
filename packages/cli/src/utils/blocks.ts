@@ -148,7 +148,8 @@ type PreloadedBlock = {
  */
 export const preloadBlocks = (
 	blocks: registry.RemoteBlock[],
-	config: ProjectConfig
+	config: ProjectConfig,
+	{ verbose }: { verbose?: (msg: string) => void } = {}
 ): PreloadedBlock[] => {
 	const preloaded: PreloadedBlock[] = [];
 
@@ -162,7 +163,8 @@ export const preloadBlocks = (
 			includedFiles.map(async (file) => {
 				const content = await registry.fetchRaw(
 					block.sourceRepo,
-					path.join(block.directory, file)
+					path.join(block.directory, file),
+					{ verbose }
 				);
 
 				return { name: file, content };
@@ -171,7 +173,7 @@ export const preloadBlocks = (
 
 		preloaded.push({
 			block,
-			files,
+			files
 		});
 	}
 

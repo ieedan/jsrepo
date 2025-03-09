@@ -1,6 +1,6 @@
 import color from 'chalk';
 import * as u from '../blocks/ts/url';
-import type { ParseOptions, RegistryProvider, RegistryProviderState } from './types';
+import type { HttpRegistryProvider, ParseOptions, RegistryProviderState } from './types';
 
 export interface HttpProviderState extends RegistryProviderState {}
 
@@ -8,7 +8,7 @@ export interface HttpProviderState extends RegistryProviderState {}
  *
  *  `(https|http)://example.com`
  */
-export const http: RegistryProvider = {
+export const http: HttpRegistryProvider = {
 	name: 'http',
 
 	matches: (url) => url.toLowerCase().startsWith('http'),
@@ -18,7 +18,7 @@ export const http: RegistryProvider = {
 
 		return {
 			url: parsed.url,
-			specifier: parsed.specifier,
+			specifier: parsed.specifier
 		};
 	},
 
@@ -33,7 +33,7 @@ export const http: RegistryProvider = {
 
 		return {
 			url: normalizedUrl,
-			provider: http,
+			provider: http
 		} satisfies HttpProviderState;
 	},
 
@@ -48,11 +48,19 @@ export const http: RegistryProvider = {
 		return new URL(resourcePath, state.url);
 	},
 
+	authHeader: (token) => ['Authorization', `token ${token}`],
+
 	formatFetchError: (state, filePath, error) => {
 		return `There was an error fetching ${color.bold(new URL(filePath, state.url).toString())}
 	
 ${color.bold(error)}`;
 	},
+
+	keys: {
+		token: (url) => {
+			return u.removeTrailingSlash(url);
+		}
+	}
 };
 
 const parseUrl = (
@@ -76,6 +84,6 @@ const parseUrl = (
 
 	return {
 		url: u.addTrailingSlash(u.join(parsedUrl.origin, ...segments)),
-		specifier,
+		specifier
 	};
 };

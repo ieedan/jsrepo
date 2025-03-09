@@ -434,13 +434,14 @@ const promptForProviderConfig = async ({
 		);
 	}
 
-	const token = storage.get(provider.name);
+	// if the provider is http then use the repo as the key
+	const tokenKey = provider.name === 'http' ? registry.http.keys.token(repo) : provider.name;
+	const token = storage.get(tokenKey);
 
-	// don't ask if the provider is a custom domain
-	if (!token && provider.name !== registry.http.name && !options.yes) {
+	if (!token && !options.yes) {
 		const result = await confirm({
 			message: 'Would you like to add an auth token?',
-			initialValue: false,
+			initialValue: false
 		});
 
 		if (isCancel(result)) {
@@ -453,7 +454,7 @@ const promptForProviderConfig = async ({
 				message: 'Paste your token',
 				validate(value) {
 					if (value.trim() === '') return 'Please provide a value';
-				},
+				}
 			});
 
 			if (isCancel(response)) {
@@ -461,15 +462,13 @@ const promptForProviderConfig = async ({
 				process.exit(0);
 			}
 
-			storage.set(provider.name, response);
+			storage.set(tokenKey, response);
 		}
 	}
 
 	loading.start(`Fetching manifest from ${color.cyan(repo)}`);
 
-	const providerState = (
-		await registry.getProviderState(repo, { noCache: !options.cache })
-	).match(
+	const providerState = (await registry.getProviderState(repo, { noCache: !options.cache })).match(
 		(v) => v,
 		(err) => program.error(color.red(err))
 	);
@@ -490,14 +489,14 @@ const promptForProviderConfig = async ({
 	if (manifest.configFiles) {
 		const { prettierOptions, biomeOptions } = await loadFormatterConfig({
 			formatter: formatter,
-			cwd: options.cwd,
+			cwd: options.cwd
 		});
 
 		for (const file of manifest.configFiles) {
 			if (file.optional && !options.yes) {
 				const result = await confirm({
 					message: `Would you like to add the ${file.name} file?`,
-					initialValue: true,
+					initialValue: true
 				});
 
 				if (isCancel(result)) {
@@ -520,7 +519,7 @@ const promptForProviderConfig = async ({
 					placeholder: file.expectedPath,
 					validate(value) {
 						if (value.trim() === '') return 'Please provide a value';
-					},
+					}
 				});
 
 				if (isCancel(result)) {
@@ -548,9 +547,7 @@ const promptForProviderConfig = async ({
 
 						const newPath = path.relative(options.cwd, matchedPath);
 
-						log.warn(
-							`Located ${color.bold(configFiles[file.name])} at ${color.bold(newPath)}`
-						);
+						log.warn(`Located ${color.bold(configFiles[file.name])} at ${color.bold(newPath)}`);
 
 						// update path
 						configFiles[file.name] = newPath;
@@ -570,11 +567,11 @@ const promptForProviderConfig = async ({
 			const originalRemoteContent = await formatFile({
 				file: {
 					content: remoteContent,
-					destPath: fullFilePath,
+					destPath: fullFilePath
 				},
 				biomeOptions,
 				prettierOptions,
-				formatter,
+				formatter
 			});
 
 			loading.stop(`Fetched the ${color.cyan(file.name)} from ${color.cyan(repo)}`);
@@ -589,17 +586,17 @@ const promptForProviderConfig = async ({
 						config: { biomeOptions, prettierOptions, formatter },
 						current: {
 							content: fileContents,
-							path: fullFilePath,
+							path: fullFilePath
 						},
 						incoming: {
 							content: originalRemoteContent,
-							path: from,
+							path: from
 						},
 						options: {
 							...options,
 							loading,
-							no: false,
-						},
+							no: false
+						}
 					});
 
 					if (updateResult.applyChanges) {
@@ -632,7 +629,7 @@ const promptForProviderConfig = async ({
 		const configurePaths = await multiselect({
 			message: 'Which category paths would you like to configure?',
 			options: manifest.categories.map((cat) => ({ label: cat.name, value: cat.name })),
-			required: false,
+			required: false
 		});
 
 		if (isCancel(configurePaths)) {
@@ -651,7 +648,7 @@ const promptForProviderConfig = async ({
 					},
 					placeholder: configuredValue ? configuredValue : `./src/${category}`,
 					defaultValue: configuredValue,
-					initialValue: configuredValue,
+					initialValue: configuredValue
 				});
 
 				if (isCancel(categoryPath)) {

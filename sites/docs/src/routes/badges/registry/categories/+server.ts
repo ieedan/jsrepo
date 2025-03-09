@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import { fetchManifest, selectProvider } from 'jsrepo';
 import { makeBadge } from 'badge-maker';
 
-export const GET = async ({ url }) => {
+export const GET = async ({ url }: { url: URL }) => {
 	const registryUrl = url.searchParams.get('url');
 
 	if (registryUrl == null) throw error(400, 'Expected `url` search param');
@@ -14,7 +14,11 @@ export const GET = async ({ url }) => {
 
 	const state = await getProviderState(registryUrl, provider, { cache: true });
 
-	const manifest = (await fetchManifest(state, { token: getProviderToken(state.provider) })).match(
+	const manifest = (
+		await fetchManifest(state, {
+			token: getProviderToken(state.provider, state.url)
+		})
+	).match(
 		(v) => v,
 		(err) => {
 			throw error(400, `Error fetching manifest: ${err}`);
