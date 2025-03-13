@@ -21,7 +21,7 @@
   "license": "MIT",
   "devDependencies": {
     "@changesets/cli": "^2.28.1",
-    "pkg-pr-new": "^0.0.40"
+    "pkg-pr-new": "^0.0.41"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

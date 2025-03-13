@@ -35,4 +35,4 @@ jobs:
           env:
             CHANGED_DIRS: ${{ steps.changed-files.outputs.all_changed_files }}
           # run: |
-          run: pnpm dlx pkg-pr-new publish './packages/cli'
+          run: pnpm pkg-pr-new publish './packages/cli' --bin
