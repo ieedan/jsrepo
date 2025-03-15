@@ -1,10 +1,12 @@
 import color from 'chalk';
 import { startsWithOneOf } from '../blocks/ts/strings';
+import * as u from '../blocks/ts/url';
 import type { ParseOptions, RegistryProvider, RegistryProviderState } from './types';
 
 const DEFAULT_BRANCH = 'main';
 
 export interface GitLabProviderState extends RegistryProviderState {
+	baseUrl: string;
 	owner: string;
 	repoName: string;
 	ref: string;
@@ -19,11 +21,16 @@ export interface GitLabProviderState extends RegistryProviderState {
  * `https://gitlab.com/ieedan/std/-/tree/v2.0.0`
  *
  * `https://gitlab.com/ieedan/std/-/tree/v2.0.0?ref_type=tags`
+ *
+ * Self hosted:
+ *
+ * `gitlab:https://example.com/ieedan/std`
  */
 export const gitlab: RegistryProvider = {
 	name: 'gitlab',
 
-	matches: (url) => startsWithOneOf(url.toLowerCase(), ['gitlab', 'https://gitlab.com']),
+	matches: (url) =>
+		startsWithOneOf(url.toLowerCase(), ['gitlab/', 'gitlab:', 'https://gitlab.com']),
 
 	parse: (url, opts) => {
 		const parsed = parseUrl(url, opts);
@@ -35,13 +42,19 @@ export const gitlab: RegistryProvider = {
 	},
 
 	baseUrl: (url) => {
-		const { owner, repoName } = parseUrl(url, { fullyQualified: false });
+		const { baseUrl, owner, repoName } = parseUrl(url, { fullyQualified: false });
 
-		return `https://gitlab.com/${owner}/${repoName}`;
+		return u.join(baseUrl, owner, repoName);
 	},
 
 	state: async (url, { token, fetch: f = fetch } = {}) => {
-		let { url: normalizedUrl, owner, repoName, ref } = parseUrl(url, { fullyQualified: false });
+		let {
+			baseUrl,
+			url: normalizedUrl,
+			owner,
+			repoName,
+			ref,
+		} = parseUrl(url, { fullyQualified: false });
 
 		// fetch default branch if ref was not provided
 		if (ref === undefined) {
@@ -55,7 +68,10 @@ export const gitlab: RegistryProvider = {
 				}
 
 				const response = await f(
-					`https://gitlab.com/api/v4/projects/${encodeURIComponent(`${owner}/${repoName}`)}`,
+					u.join(
+						baseUrl,
+						`api/v4/projects/${encodeURIComponent(`${owner}/${repoName}`)}`
+					),
 					{
 						headers,
 					}
@@ -79,6 +95,7 @@ export const gitlab: RegistryProvider = {
 			owner,
 			repoName,
 			ref,
+			baseUrl,
 			url: normalizedUrl,
 			provider: gitlab,
 		} satisfies GitLabProviderState;
@@ -92,18 +109,21 @@ export const gitlab: RegistryProvider = {
 			);
 		}
 
-		const { owner, repoName, ref } = state as GitLabProviderState;
+		const { baseUrl, owner, repoName, ref } = state as GitLabProviderState;
 
 		return new URL(
-			`${encodeURIComponent(resourcePath)}/raw?ref=${ref}`,
-			`https://gitlab.com/api/v4/projects/${encodeURIComponent(`${owner}/${repoName}`)}/repository/files/`
+			u.join(
+				baseUrl,
+				`api/v4/projects/${encodeURIComponent(`${owner}/${repoName}`)}`,
+				`repository/files/${encodeURIComponent(resourcePath)}/raw?ref=${ref}`
+			)
 		);
 	},
 
 	authHeader: (token) => ['PRIVATE-TOKEN', token],
 
-	formatFetchError: (state, filePath) => {
-		return `There was an error fetching \`${color.bold(filePath)}\` from ${color.bold(state.url)}.
+	formatFetchError: (state, filePath, error) => {
+		return `There was an error fetching \`${color.bold(filePath)}\` from ${color.bold(state.url)}: ${error}.
 
 ${color.bold('This may be for one of the following reasons:')}
 1. Either \`${color.bold(filePath)}\` or the containing repository doesn't exist
@@ -117,8 +137,24 @@ ${color.bold('This may be for one of the following reasons:')}
 const parseUrl = (
 	url: string,
 	{ fullyQualified }: ParseOptions
-): { url: string; owner: string; repoName: string; ref?: string; specifier?: string } => {
-	const repo = url.replaceAll(/(https:\/\/gitlab.com\/)|(gitlab\/)/g, '');
+): {
+	url: string;
+	baseUrl: string;
+	owner: string;
+	repoName: string;
+	ref?: string;
+	specifier?: string;
+} => {
+	let baseUrl = 'https://gitlab.com';
+
+	if (url.startsWith('gitlab:')) {
+		baseUrl = new URL(url.slice(7)).origin;
+	}
+
+	const repo = url.replaceAll(
+		/gitlab\/|https:\/\/gitlab\.com\/|gitlab:https?:\/\/[a-zA-Z0-9-]+\.[a-zA-Z]+\//g,
+		''
+	);
 
 	let [owner, repoName, ...rest] = repo.split('/');
 
@@ -143,7 +179,8 @@ const parseUrl = (
 	}
 
 	return {
-		url: `gitlab/${owner}/${repoName}${ref ? `/-/tree/${ref}` : ''}`,
+		url: u.join(baseUrl, `${owner}/${repoName}${ref ? `/-/tree/${ref}` : ''}`),
+		baseUrl,
 		owner: owner,
 		repoName: repoName,
 		ref,

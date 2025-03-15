@@ -305,7 +305,7 @@ describe('gitlab', () => {
 				url: 'https://gitlab.com/ieedan/std',
 				opts: { fullyQualified: false },
 				expected: {
-					url: 'gitlab/ieedan/std',
+					url: 'https://gitlab.com/ieedan/std',
 					specifier: undefined,
 				},
 			},
@@ -313,7 +313,7 @@ describe('gitlab', () => {
 				url: 'gitlab/ieedan/std',
 				opts: { fullyQualified: false },
 				expected: {
-					url: 'gitlab/ieedan/std',
+					url: 'https://gitlab.com/ieedan/std',
 					specifier: undefined,
 				},
 			},
@@ -321,7 +321,7 @@ describe('gitlab', () => {
 				url: 'gitlab/ieedan/std/-/tree/next',
 				opts: { fullyQualified: false },
 				expected: {
-					url: 'gitlab/ieedan/std/-/tree/next',
+					url: 'https://gitlab.com/ieedan/std/-/tree/next',
 					specifier: undefined,
 				},
 			},
@@ -329,7 +329,7 @@ describe('gitlab', () => {
 				url: 'https://gitlab.com/ieedan/std/-/tree/v2.0.0',
 				opts: { fullyQualified: false },
 				expected: {
-					url: 'gitlab/ieedan/std/-/tree/v2.0.0',
+					url: 'https://gitlab.com/ieedan/std/-/tree/v2.0.0',
 					specifier: undefined,
 				},
 			},
@@ -337,7 +337,7 @@ describe('gitlab', () => {
 				url: 'https://gitlab.com/ieedan/std/-/tree/v2.0.0?ref_type=tags',
 				opts: { fullyQualified: false },
 				expected: {
-					url: 'gitlab/ieedan/std/-/tree/v2.0.0',
+					url: 'https://gitlab.com/ieedan/std/-/tree/v2.0.0',
 					specifier: undefined,
 				},
 			},
@@ -345,7 +345,7 @@ describe('gitlab', () => {
 				url: 'https://gitlab.com/ieedan/std/utils/math',
 				opts: { fullyQualified: true },
 				expected: {
-					url: 'gitlab/ieedan/std',
+					url: 'https://gitlab.com/ieedan/std',
 					specifier: 'utils/math',
 				},
 			},
@@ -353,7 +353,7 @@ describe('gitlab', () => {
 				url: 'gitlab/ieedan/std/utils/math',
 				opts: { fullyQualified: true },
 				expected: {
-					url: 'gitlab/ieedan/std',
+					url: 'https://gitlab.com/ieedan/std',
 					specifier: 'utils/math',
 				},
 			},
@@ -361,8 +361,16 @@ describe('gitlab', () => {
 				url: 'gitlab/ieedan/std/-/tree/v2.0.0/utils/math',
 				opts: { fullyQualified: true },
 				expected: {
-					url: 'gitlab/ieedan/std/-/tree/v2.0.0',
+					url: 'https://gitlab.com/ieedan/std/-/tree/v2.0.0',
 					specifier: 'utils/math',
+				},
+			},
+			{
+				url: 'gitlab:https://example.com/ieedan/std',
+				opts: { fullyQualified: false },
+				expected: {
+					url: 'https://example.com/ieedan/std',
+					specifier: undefined,
 				},
 			},
 		];
@@ -383,8 +391,12 @@ describe('gitlab', () => {
 				expected: 'https://gitlab.com/ieedan/std',
 			},
 			{
-				url: 'gitlab/ieedan/std/tree/next',
+				url: 'gitlab/ieedan/std/-/tree/next',
 				expected: 'https://gitlab.com/ieedan/std',
+			},
+			{
+				url: 'gitlab:https://example.com/ieedan/std/-/tree/next',
+				expected: 'https://example.com/ieedan/std',
 			},
 		];
 
@@ -595,6 +607,31 @@ describe('gitlab', () => {
 	}
 ]
 `);
+	});
+
+	it('Fetches the manifest with "gitlab" prefix', async () => {
+		const repoURL = 'gitlab:https://gitlab.com/ieedan/std';
+
+		const providerState = await registry.getProviderState(repoURL);
+
+		assert(providerState.isOk());
+
+		const content = await registry.fetchManifest(providerState.unwrap());
+
+		expect(content.isErr()).toBe(false);
+	});
+
+	// this is just here to make sure fetch manifest is actually using the right url
+	it('Fails to fetch with incorrect prefixed url', async () => {
+		const repoURL = 'gitlab:https://gitlab.om/ieedan/std';
+
+		const providerState = await registry.getProviderState(repoURL);
+
+		assert(providerState.isOk());
+
+		const content = await registry.fetchManifest(providerState.unwrap());
+
+		expect(content.isErr()).toBe(true);
 	});
 });
 
