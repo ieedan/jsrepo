@@ -22,4 +22,4 @@ jobs:
 
         - name: publish preview
           # run: |
-          run: pnpm dlx pkg-pr-new publish './packages/cli'
+          run: pnpm pkg-pr-new publish './packages/cli' --bin
