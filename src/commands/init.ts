@@ -46,6 +46,7 @@ import {
 } from '../utils/prompts';
 import * as registry from '../utils/registry-providers/internal';
 import { TokenManager } from '../utils/token-manager';
+import { CaseInsensitiveSet } from '../utils/case-insensitive-set';
 
 const schema = v.object({
 	repos: v.optional(v.array(v.string())),
@@ -267,7 +268,7 @@ const _initProject = async (registries: string[], options: Options) => {
 	}
 
 	const repos = Array.from(
-		new Set([
+		new CaseInsensitiveSet([
 			...registries,
 			...(options.repos ?? []),
 			...(initialConfig.isOk() ? initialConfig.unwrap().repos : []),

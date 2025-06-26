@@ -32,6 +32,7 @@ import {
 	truncatedList,
 } from '../utils/prompts';
 import * as registry from '../utils/registry-providers/internal';
+import { CaseInsensitiveSet } from '../utils/case-insensitive-set';
 
 const schema = v.object({
 	watermark: v.optional(v.boolean()),
@@ -174,7 +175,7 @@ async function _add(blockNames: string[], options: Options) {
 		options.paths !== undefined ? { ...config.paths, ...options.paths } : config.paths;
 
 	let repoPaths = config.repos;
-	const mustResolveRepos = new Set<string>();
+	const mustResolveRepos = new CaseInsensitiveSet<string>();
 	let resolveAllRepos = false;
 
 	// we just want to override all others if supplied via the CLI
